@@ -1,19 +1,21 @@
 {
   "name": "matic-protocol",
-  "version": "1.0.0",
+  "version": "0.3.2",
   "description": "",
   "main": "index.js",
   "verify": {
     "contracts": "RootChain StakeManager"
   },
   "scripts": {
-    "testrpc": "ganache-cli --hardfork istanbul --mnemonic 'clock radar mass judge dismiss just intact mind resemble fringe diary casino' -p 9545 --gasLimit 8000000 --gasPrice 0",
+    "testrpc": "ganache-cli --hardfork istanbul --mnemonic 'clock radar mass judge dismiss just intact mind resemble fringe diary casino' -p 9545 --gasLimit 10000000 --gasPrice 0 --allowUnlimitedContractSize --accounts 200",
     "template:process": "node scripts/process-templates.js",
     "truffle": "truffle",
     "truffle:test": "truffle test",
     "truffle:coverage": "truffle run coverage",
     "truffle:compile": "truffle compile",
-    "truffle:migrate": "truffle migrate",
+    "truffle:migrate": "scripts/run-migration.sh",
+    "truffle:migrate:dev": "truffle migrate --network development",
+    "truffle:migrate:dev:bor": "truffle migrate --network bor",
     "truffle:verify": "truffle run verify $npm_package_verify_contracts --network ropsten",
     "test": "truffle test",
     "coverage": "scripts/run-coverage.sh",
@@ -25,9 +27,7 @@
     "lint:sol:fix": "solium -d contracts/ --fix",
     "lint:sol": "solium -d contracts/"
   },
-  "pre-commit": [
-    "lint:sol"
-  ],
+  "pre-commit": [],
   "repository": {
     "type": "git",
     "url": "https://github.com/maticnetwork/contracts.git"
@@ -71,9 +71,11 @@
     "solium": "^1.1.8",
     "truffle": "5.0.34",
     "web3": "^1.0.0-beta.33",
-    "web3-eth-abi": "^1.0.0-beta.51"
+    "web3-eth-abi": "^1.0.0-beta.51",
+    "truffle-contract-size": "^1.0.1"
   },
   "dependencies": {
+    "@truffle/hdwallet-provider": "^1.4.0",
     "commander": "^4.0.1",
     "ethereumjs-abi": "^0.6.5",
     "ethereumjs-block": "2.1.0",
@@ -85,7 +87,6 @@
     "nunjucks": "^3.2.0",
     "openzeppelin-solidity": "2.2.0",
     "solidity-rlp": "^2.0.0",
-    "truffle-hdwallet-provider": "^1.0.17",
     "truffle-plugin-verify": "^0.3.8"
   }
 }
