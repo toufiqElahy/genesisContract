@@ -1,14 +1,13 @@
 pragma solidity ^0.5.2;
 
-import {ERC721Full} from "openzeppelin-solidity/contracts/token/ERC721/ERC721Full.sol";
+import {
+    ERC721Full
+} from "openzeppelin-solidity/contracts/token/ERC721/ERC721Full.sol";
 
 import "./ChildToken.sol";
 import "./misc/IParentToken.sol";
 
-import {StateSyncerVerifier} from "./bor/StateSyncerVerifier.sol";
-import {StateReceiver} from "./bor/StateReceiver.sol";
-
-contract ChildERC721 is ChildToken, ERC721Full, StateSyncerVerifier, StateReceiver {
+contract ChildERC721 is ChildToken, ERC721Full {
     event Deposit(address indexed token, address indexed from, uint256 tokenId);
 
     event Withdraw(
@@ -25,12 +24,13 @@ contract ChildERC721 is ChildToken, ERC721Full, StateSyncerVerifier, StateReceiv
     );
 
     constructor(
-        address /* ignoring parent owner, use contract owner instead */,
+        address _owner,
         address _token,
         string memory name,
         string memory symbol
     ) public ERC721Full(name, symbol) {
-        require(_token != address(0x0));
+        require(_token != address(0x0) && _owner != address(0x0));
+        parentOwner = _owner;
         token = _token;
     }
 
@@ -46,9 +46,11 @@ contract ChildERC721 is ChildToken, ERC721Full, StateSyncerVerifier, StateReceiv
             "Signature is expired"
         );
 
-        bytes32 dataHash = hashEIP712MessageWithAddress(
-            hashTokenTransferOrder(msg.sender, tokenId, data, expiration),
-            address(this)
+        bytes32 dataHash = getTokenTransferOrderHash(
+            msg.sender,
+            tokenId,
+            data,
+            expiration
         );
         require(disabledHashes[dataHash] == false, "Sig deactivated");
         disabledHashes[dataHash] = true;
@@ -61,6 +63,11 @@ contract ChildERC721 is ChildToken, ERC721Full, StateSyncerVerifier, StateReceiv
             "_checkOnERC721Received failed"
         );
         return from;
+    }
+
+    function setParent(address _parent) public isParentOwner {
+        require(_parent != address(0x0));
+        parent = _parent;
     }
 
     function approve(address to, uint256 tokenId) public {
@@ -92,7 +99,7 @@ contract ChildERC721 is ChildToken, ERC721Full, StateSyncerVerifier, StateReceiv
    * @param user address for deposit
    * @param tokenId tokenId to mint to user's account
    */
-    function deposit(address user, uint256 tokenId) public onlyChildChain {
+    function deposit(address user, uint256 tokenId) public onlyOwner {
         require(user != address(0x0));
         _mint(user, tokenId);
         emit Deposit(token, user, tokenId);
@@ -106,15 +113,6 @@ contract ChildERC721 is ChildToken, ERC721Full, StateSyncerVerifier, StateReceiv
         require(ownerOf(tokenId) == msg.sender);
         _burn(msg.sender, tokenId);
         emit Withdraw(token, msg.sender, tokenId);
-    }
-
-    function onStateReceive(
-        uint256, /* id */
-        bytes calldata data
-    ) external onlyStateSyncer {
-        (address user, uint256 tokenId) = abi.decode(data, (address, uint256));
-        _burn(user, tokenId);
-        emit Withdraw(token, user, tokenId);
     }
 
     /**

@@ -38,7 +38,7 @@ contract('StakeManager', async function(accounts) {
     before(async function() {
       stakeToken = await RootToken.new('Stake Token', 'STAKE')
       stakeManager = await StakeManagerMock.new()
-      await stakeManager.setStakingToken(stakeToken.address)
+      await stakeManager.setToken(stakeToken.address)
       wallets = generateFirstWallets(mnemonics, 10)
 
       // transfer tokens to other accounts

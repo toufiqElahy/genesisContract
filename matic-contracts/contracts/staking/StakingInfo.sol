@@ -2,11 +2,13 @@ pragma solidity ^0.5.2;
 
 import {Registry} from "../common/Registry.sol";
 import {SafeMath} from "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import {Ownable} from "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+
+import {BytesLib} from "../common/lib/BytesLib.sol";
+import {ECVerify} from "../common/lib/ECVerify.sol";
 
 
 // dummy interface to avoid cyclic dependency
-contract IStakeManagerLocal {
+contract IStakeManager {
     enum Status {Inactive, Active, Locked, Unstaked}
 
     struct Validator {
@@ -36,7 +38,8 @@ contract IStakeManagerLocal {
     function isValidator(uint256 validatorId) public view returns (bool);
 }
 
-contract StakingInfo is Ownable {
+
+contract StakingInfo {
     using SafeMath for uint256;
     mapping(uint256 => uint256) public validatorNonce;
 
@@ -156,7 +159,8 @@ contract StakingInfo is Ownable {
     event DelegatorClaimedRewards(
         uint256 indexed validatorId,
         address indexed user,
-        uint256 indexed rewards
+        uint256 indexed rewards,
+        uint256 tokens
     );
     event DelegatorRestaked(
         uint256 indexed validatorId,
@@ -178,7 +182,7 @@ contract StakingInfo is Ownable {
 
     modifier onlyValidatorContract(uint256 validatorId) {
         address _contract;
-        (, , , , , , _contract, ) = IStakeManagerLocal(
+        (, , , , , , _contract, ) = IStakeManager(
             registry.getStakeManagerAddress()
         )
             .validators(validatorId);
@@ -190,7 +194,7 @@ contract StakingInfo is Ownable {
     modifier StakeManagerOrValidatorContract(uint256 validatorId) {
         address _contract;
         address _stakeManager = registry.getStakeManagerAddress();
-        (, , , , , , _contract, ) = IStakeManagerLocal(_stakeManager).validators(
+        (, , , , , , _contract, ) = IStakeManager(_stakeManager).validators(
             validatorId
         );
         require(_contract == msg.sender || _stakeManager == msg.sender,
@@ -212,17 +216,6 @@ contract StakingInfo is Ownable {
     constructor(address _registry) public {
         registry = Registry(_registry);
     }
-
-    function updateNonce(
-        uint256[] calldata validatorIds,
-        uint256[] calldata nonces
-    ) external onlyOwner {
-        require(validatorIds.length == nonces.length, "args length mismatch");
-
-        for (uint256 i = 0; i < validatorIds.length; ++i) {
-            validatorNonce[validatorIds[i]] = nonces[i];
-        }
-    } 
 
     function logStaked(
         address signer,
@@ -397,11 +390,11 @@ contract StakingInfo is Ownable {
             uint256 _status
         )
     {
-        IStakeManagerLocal stakeManager = IStakeManagerLocal(
+        IStakeManager stakeManager = IStakeManager(
             registry.getStakeManagerAddress()
         );
         address _contract;
-        IStakeManagerLocal.Status status;
+        IStakeManager.Status status;
         (
             amount,
             reward,
@@ -412,10 +405,8 @@ contract StakingInfo is Ownable {
             _contract,
             status
         ) = stakeManager.validators(validatorId);
+        reward += IStakeManager(_contract).validatorRewards();
         _status = uint256(status);
-        if (_contract != address(0x0)) {
-            reward += IStakeManagerLocal(_contract).validatorRewards();
-        }
     }
 
     function totalValidatorStake(uint256 validatorId)
@@ -424,12 +415,12 @@ contract StakingInfo is Ownable {
         returns (uint256 validatorStake)
     {
         address contractAddress;
-        (validatorStake, , , , , , contractAddress, ) = IStakeManagerLocal(
+        (validatorStake, , , , , , contractAddress, ) = IStakeManager(
             registry.getStakeManagerAddress()
         )
             .validators(validatorId);
         if (contractAddress != address(0x0)) {
-            validatorStake += IStakeManagerLocal(contractAddress).activeAmount();
+            validatorStake += IStakeManager(contractAddress).activeAmount();
         }
     }
 
@@ -438,7 +429,7 @@ contract StakingInfo is Ownable {
         view
         returns (bytes32 accountStateRoot)
     {
-        accountStateRoot = IStakeManagerLocal(registry.getStakeManagerAddress())
+        accountStateRoot = IStakeManager(registry.getStakeManagerAddress())
             .accountStateRoot();
     }
 
@@ -447,7 +438,7 @@ contract StakingInfo is Ownable {
         view
         returns (address ValidatorContract)
     {
-        (, , , , , , ValidatorContract, ) = IStakeManagerLocal(
+        (, , , , , , ValidatorContract, ) = IStakeManager(
             registry.getStakeManagerAddress()
         )
             .validators(validatorId);
@@ -475,9 +466,10 @@ contract StakingInfo is Ownable {
     function logDelegatorClaimRewards(
         uint256 validatorId,
         address user,
-        uint256 rewards
+        uint256 rewards,
+        uint256 tokens
     ) public onlyValidatorContract(validatorId) {
-        emit DelegatorClaimedRewards(validatorId, user, rewards);
+        emit DelegatorClaimedRewards(validatorId, user, rewards, tokens);
     }
 
     function logDelegatorRestaked(
@@ -495,7 +487,6 @@ contract StakingInfo is Ownable {
         emit DelegatorUnstaked(validatorId, user, amount);
     }
 
-    // deprecated
     function logUpdateCommissionRate(
         uint256 validatorId,
         uint256 newCommissionRate,

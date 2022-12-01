@@ -5,11 +5,11 @@ import encode from 'ethereumjs-abi'
 
 import { rewradsTree } from '../../helpers/proofs.js'
 import deployer from '../../helpers/deployer.js'
-import { TestToken, TransferWithSigPredicate } from '../../helpers/artifacts'
+import { DummyERC20 } from '../../helpers/artifacts.js'
 import {
   assertBigNumberEquality,
   assertBigNumbergt,
-  buildsubmitCheckpointPaylod
+  buildSubmitHeaderBlockPaylod
 } from '../../helpers/utils.js'
 import { generateFirstWallets, mnemonics } from '../../helpers/wallets.js'
 import { expectEvent, expectRevert, BN } from '@openzeppelin/test-helpers'
@@ -39,11 +39,11 @@ contract('RootChain', async function(accounts) {
   })
 
   async function freshDeploy() {
-    const contracts = await deployer.deployStakeManager(wallets)
+    const contracts = await deployer.freshDeploy({ stakeManager: true })
     rootChain = contracts.rootChain
     stakeManager = contracts.stakeManager
-    stakeToken = await TestToken.new('Stake Token', 'STAKE')
-    await stakeManager.setStakingToken(stakeToken.address)
+    stakeToken = await DummyERC20.new('Stake Token', 'STAKE')
+    await stakeManager.setToken(stakeToken.address)
     await stakeManager.changeRootChain(rootChain.address)
     await stakeManager.updateCheckPointBlockInterval(1)
 
@@ -58,12 +58,14 @@ contract('RootChain', async function(accounts) {
         from: wallets[i].getAddressString()
       })
 
-      await stakeManager.stakeFor(wallets[i].getAddressString(), amount, this.defaultHeimdallFee, false, wallets[i].getPublicKeyString(), {
+      await stakeManager.stake(amount, this.defaultHeimdallFee, false, wallets[i].getPublicKeyString(), {
         from: wallets[i].getAddressString()
       })
       accountState[i + 1] = 0
       validators.push(i + 1)
     }
+
+    this.reward = await stakeManager.CHECKPOINT_REWARD()
   }
 
   function buildRoot(that) {
@@ -74,7 +76,7 @@ contract('RootChain', async function(accounts) {
     before(async function() {
       if (!dontBuildHeaderBlockPayload) {
         let tree = await rewradsTree(validators, accountState)
-        const { data, sigs } = buildsubmitCheckpointPaylod(
+        const { data, sigs } = buildSubmitHeaderBlockPaylod(
           this.proposer,
           this.start,
           this.end,
@@ -91,13 +93,14 @@ contract('RootChain', async function(accounts) {
     })
 
     it('must submit', async function() {
-      this.result = await rootChain.submitCheckpoint(this.data, this.sigs)
+      this.result = await rootChain.submitHeaderBlock(this.data, this.sigs)
     })
 
     it('must emit NewBlockHeader', async function() {
       await expectEvent(this.result, 'NewHeaderBlock', {
         proposer: this.proposer,
         root: this.root,
+        reward: this.reward,
         headerBlockId: this.headerBlockId,
         start: this.start.toString(),
         end: this.end.toString()
@@ -116,7 +119,7 @@ contract('RootChain', async function(accounts) {
     })
   }
 
-  describe('submitCheckpoint', function() {
+  describe('submitHeaderBlock', function() {
     describe('1 header block', function() {
       before(freshDeploy)
       before(function() {
@@ -170,7 +173,7 @@ contract('RootChain', async function(accounts) {
       })
     })
 
-    describe.skip('with hardcoded params', async function() {
+    describe('with hardcoded params', async function() {
       before(freshDeploy)
 
       before(async function() {
@@ -185,22 +188,6 @@ contract('RootChain', async function(accounts) {
       })
 
       testCheckpoint(true)
-    })
-
-    describe('when blockInterval is less than checkPointBlockInterval', function() {
-      before(freshDeploy)
-
-      before(async function() {
-        await stakeManager.updateCheckPointBlockInterval(2)
-
-        this.start = 0
-        this.end = 0
-        this.headerBlockId = '10000'
-        this.proposer = accounts[0]
-        this.root = buildRoot(this)
-      })
-
-      testCheckpoint()
     })
   })
 

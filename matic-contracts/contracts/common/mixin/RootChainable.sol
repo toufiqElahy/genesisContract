@@ -14,6 +14,10 @@ contract RootChainable is Ownable {
         address indexed newRootChain
     );
 
+    //
+    // Only root chain
+    //
+
     // only root chain
     modifier onlyRootChain() {
         require(msg.sender == rootChain);

@@ -5,7 +5,7 @@ const chai = require('chai')
 const chaiAsPromised = require('chai-as-promised')
 chai.use(chaiAsPromised).should()
 
-var HDWalletProvider = require('@truffle/hdwallet-provider')
+var HDWalletProvider = require('truffle-hdwallet-provider')
 
 const MNEMONIC =
   process.env.MNEMONIC ||
@@ -17,14 +17,11 @@ module.exports = {
   // to customize your Truffle configuration!
   networks: {
     development: {
-      provider: () =>
-        new HDWalletProvider(
-          MNEMONIC,
-          `http://103.150.136.231:9545`
-        ),
+      host: 'localhost',
+      port: 9545,
       network_id: '*', // match any network
       skipDryRun: true,
-      //gas: 5500000
+      gas: 7000000
     },
     bor: {
       provider: () =>
@@ -33,16 +30,7 @@ module.exports = {
           `http://localhost:8545`
         ),
       network_id: '*', // match any network
-      //gasPrice: '0'
-    },
-    matic: {
-      provider: () =>
-        new HDWalletProvider(
-          MNEMONIC,
-          `https://rpc-mainnet.matic.network`
-        ),
-      network_id: '137',
-      gasPrice: '90000000000'
+      gasPrice: '0'
     },
     mumbai: {
       provider: () =>
@@ -72,15 +60,12 @@ module.exports = {
         )
       },
       network_id: 1,
-      gas: 3000000,
-      gasPrice: '45000000000'
+      gas: 4000000
     }
   },
   compilers: {
     solc: {
-      version: '0.5.17',
-      docker: true,
-      parser: 'solcjs',
+      version: '0.5.11',
       settings: {
         optimizer: {
           enabled: true,
@@ -91,7 +76,6 @@ module.exports = {
     }
   },
   mocha: {
-    bail: false,
     reporter: 'eth-gas-reporter',
     reporterOptions: {
       currency: 'USD',
@@ -100,7 +84,7 @@ module.exports = {
       showTimeSpent: true
     }
   },
-  plugins: ['solidity-coverage', 'truffle-plugin-verify', 'truffle-contract-size'],
+  plugins: ['solidity-coverage', 'truffle-plugin-verify'],
   verify: {
     preamble: 'Matic network contracts'
   },

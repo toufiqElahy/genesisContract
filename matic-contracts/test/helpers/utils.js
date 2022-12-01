@@ -32,16 +32,12 @@ export const ZeroAddress = '0x0000000000000000000000000000000000000000'
 export let ChildMaticTokenAddress = '0x0000000000000000000000000000000000001010'
 export const scalingFactor = web3.utils.toBN(10).pow(web3.utils.toBN(18))
 
-export function getSigs(wallets, votedata, order = true) {
+export function getSigs(wallets, votedata) {
   // avoid any potential side effects
   const copyWallets = [...wallets]
-
-  if (order) {
-    copyWallets.sort((w1, w2) => {
-      return w1.getAddressString().localeCompare(w2.getAddressString())
-    })
-  }
-
+  copyWallets.sort((w1, w2) => {
+    return w1.getAddressString().localeCompare(w2.getAddressString())
+  })
   const h = ethUtils.toBuffer(votedata)
 
   return copyWallets
@@ -49,6 +45,7 @@ export function getSigs(wallets, votedata, order = true) {
       const vrs = ethUtils.ecsign(h, w.getPrivateKey())
       return ethUtils.toRpcSig(vrs.v, vrs.r, vrs.s)
     })
+    .filter(d => d)
 }
 
 export function getSigsWithVotes(_wallets, data, sigPrefix, maxYesVotes) {
@@ -72,27 +69,18 @@ export function getSigsWithVotes(_wallets, data, sigPrefix, maxYesVotes) {
       const vrs = ethUtils.ecsign(voteData, w.getPrivateKey())
       return ethUtils.toRpcSig(vrs.v, vrs.r, vrs.s)
     })
+    .filter(d => d)
 }
 
 export function encodeSigs(sigs = []) {
   return Buffer.concat(sigs.map(s => ethUtils.toBuffer(s)))
 }
 
-export function encodeSigsForCheckpoint(sigs = []) {
-  return sigs.map(s => {
-    const buffer = [...ethUtils.toBuffer(s)]
-    return [
-      new BN(buffer.slice(0, 32)),
-      new BN(buffer.slice(32, 64)),
-      new BN(buffer.slice(64, 96))
-    ]
-  })
-}
-
-export async function checkPoint(wallets, proposer, stakeManager, { blockInterval = 1, rootchainOwner, order = true } = {}) {
+export async function checkPoint(wallets, proposer, stakeManager, { blockInterval = 1 } = {}) {
   const voteData = 'dummyData'
-  const sigs = encodeSigsForCheckpoint(getSigs(wallets, ethUtils.keccak256(voteData), order))
-
+  const sigs = ethUtils.bufferToHex(
+    encodeSigs(getSigs(wallets, ethUtils.keccak256(voteData)))
+  )
   const stateRoot = ethUtils.bufferToHex(ethUtils.keccak256('stateRoot'))
   // 2/3 majority vote
   await stakeManager.checkSignatures(
@@ -102,7 +90,7 @@ export async function checkPoint(wallets, proposer, stakeManager, { blockInterva
     proposer.getAddressString(),
     sigs,
     {
-      from: (rootchainOwner || proposer).getAddressString()
+      from: proposer.getAddressString()
     }
   )
 }
@@ -149,7 +137,7 @@ export function assertBigNumbergt(num1, num2) {
 export const toChecksumAddress = address =>
   web3.utils.toChecksumAddress(address)
 
-export function buildsubmitCheckpointPaylod(
+export function buildSubmitHeaderBlockPaylod(
   proposer,
   start,
   end,
@@ -172,16 +160,16 @@ export function buildsubmitCheckpointPaylod(
   )
   const sigData = Buffer.concat([ethUtils.toBuffer(options.sigPrefix || '0x01'), ethUtils.toBuffer(data)])
 
-  // in case of TestStakeManger use empty data
-  const sigs = encodeSigsForCheckpoint(
+  // in case of TestStakeManger use dummysig data
+  const sigs = ethUtils.bufferToHex(
     options.getSigs
-      ? getSigs(validators, ethUtils.keccak256(sigData))
-      : []
+      ? encodeSigs(getSigs(validators, ethUtils.keccak256(sigData)))
+      : 'dummySig'
   )
   return { data, sigs }
 }
 
-export function buildsubmitCheckpointPaylodWithVotes(
+export function buildSubmitHeaderBlockPaylodWithVotes(
   proposer,
   start,
   end,
@@ -206,9 +194,9 @@ export function buildsubmitCheckpointPaylodWithVotes(
   const sigData = ethUtils.toBuffer(data)
 
   // in case of TestStakeManger use dummysig data
-  const sigs = encodeSigsForCheckpoint(
+  const sigs = ethUtils.bufferToHex(
     options.getSigs
-      ? getSigsWithVotes(validators, sigData, options.sigPrefix, maxYesVotes)
+      ? encodeSigs(getSigsWithVotes(validators, sigData, options.sigPrefix, maxYesVotes))
       : 'dummySig'
   )
   return { data, sigs }
@@ -326,12 +314,7 @@ export function startExit(
         ethUtils.bufferToHex(reference.receiptsRoot),
         ethUtils.bufferToHex(reference.receipt),
         ethUtils.bufferToHex(rlp.encode(reference.receiptParentNodes)),
-        ethUtils.bufferToHex(
-          Buffer.concat([
-            Buffer.from('00', 'hex'),
-            reference.path
-          ])
-        ), // branch mask,
+        ethUtils.bufferToHex(rlp.encode(reference.path)), // branch mask,
         logIndex
       ])
     ),
@@ -404,12 +387,7 @@ export function startExitForErc20PredicateLegacy(
         ethUtils.bufferToHex(reference.receiptsRoot),
         ethUtils.bufferToHex(reference.receipt),
         ethUtils.bufferToHex(rlp.encode(reference.receiptParentNodes)),
-        ethUtils.bufferToHex(
-          Buffer.concat([
-            Buffer.from('00', 'hex'),
-            reference.path
-          ])
-        ), // branch mask,
+        ethUtils.bufferToHex(rlp.encode(reference.path)), // branch mask,
         logIndex
       ])
     ),
@@ -500,12 +478,7 @@ export function buildReferenceTxPayload(input) {
     ethUtils.bufferToHex(reference.receiptsRoot),
     ethUtils.bufferToHex(reference.receipt),
     ethUtils.bufferToHex(rlp.encode(reference.receiptParentNodes)),
-    ethUtils.bufferToHex(
-      Buffer.concat([
-        Buffer.from('00', 'hex'),
-        reference.path
-      ])
-    ), // branch mask,
+    ethUtils.bufferToHex(rlp.encode(reference.path)), // branch mask,
     logIndex
   ]
 }

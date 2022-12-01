@@ -3,7 +3,7 @@ const bluebird = require('bluebird')
 const utils = require('./utils')
 
 const SafeMath = artifacts.require(
-  'SafeMath'
+  'openzeppelin-solidity/contracts/math/SafeMath.sol'
 )
 const RLPReader = artifacts.require('solidity-rlp/contracts/RLPReader.sol')
 
@@ -147,18 +147,16 @@ module.exports = async function(deployer) {
 
     await deployer.deploy(ValidatorShareFactory)
     await deployer.deploy(StakingInfo, Registry.address)
-    await deployer.deploy(StakingNFT, 'Rama Validator', 'RV')
+    await deployer.deploy(StakingNFT, 'Matic Validator', 'MV')
 
     console.log('deploying tokens...')
     await deployer.deploy(MaticWeth)
-    await deployer.deploy(TestToken, 'RAMA', 'RAMA')
+    await deployer.deploy(TestToken, 'MATIC', 'MATIC')
     const testToken = await TestToken.new('Test ERC20', 'TST20')
     await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
 
-    const stakeManager = await deployer.deploy(StakeManager)
-    const proxy = await deployer.deploy(StakeManagerProxy, '0x0000000000000000000000000000000000000000')
-    await proxy.updateAndCall(StakeManager.address, stakeManager.contract.methods.initialize(Registry.address, RootChainProxy.address, TestToken.address, StakingNFT.address, StakingInfo.address, ValidatorShareFactory.address, GovernanceProxy.address).encodeABI())
-
+    await deployer.deploy(StakeManager)
+    await deployer.deploy(StakeManagerProxy, StakeManager.address, Registry.address, RootChainProxy.address, TestToken.address, StakingNFT.address, StakingInfo.address, ValidatorShareFactory.address, GovernanceProxy.address)
     await deployer.deploy(SlashingManager, Registry.address, StakingInfo.address, process.env.HEIMDALL_ID)
     await deployer.deploy(ValidatorShare, Registry.address, 0/** dummy id */, StakingInfo.address, StakeManagerProxy.address)
     await deployer.deploy(StateSender)

@@ -17,7 +17,7 @@ let contracts, childContracts, rootERC20, childErc20, statefulUtils
 
 contract('Misc Predicates tests @skip-on-coverage', async function(accounts) {
   before(async function() {
-    contracts = await deployer.freshDeploy(accounts[0])
+    contracts = await deployer.freshDeploy()
     childContracts = await deployer.initializeChildChain(accounts[0])
     statefulUtils = new StatefulUtils()
   })
@@ -30,46 +30,7 @@ contract('Misc Predicates tests @skip-on-coverage', async function(accounts) {
     childErc20 = e20.childToken
   })
 
-  it('Alice starts exit and transfers the exitNft to bob', async function() {
-    const alice = accounts[1]
-    const bob = accounts[2]
-    const aliceInitial = web3.utils.toBN('13')
-    const bobInitial = web3.utils.toBN('0')
-    const aliceToBobtransferAmount = web3.utils.toBN('7')
-    let deposit = await utils.deposit(
-      contracts.depositManager,
-      childContracts.childChain,
-      rootERC20,
-      alice,
-      aliceInitial,
-      { rootDeposit: true, erc20: true }
-    )
-    const utxo1a = { checkpoint: await statefulUtils.submitCheckpoint(
-      contracts.rootChain, deposit.receipt, accounts), logIndex: 1 }
-    let inFlightTx = await predicateTestUtils.getRawInflightTx(
-      childErc20.transfer.bind(
-        null, bob, aliceToBobtransferAmount), alice /* from */, web3Child)
-    // Alice starts an exit
-    await utils.startExitForErc20Predicate(
-      contracts.ERC20Predicate.startExitForOutgoingErc20Transfer,
-      [utxo1a].map(predicateTestUtils.buildInputFromCheckpoint),
-      inFlightTx,
-      alice // exitor
-    )
-    // let logs = logDecoder.decodeLogs(startExitTx.receipt.rawLogs)
-    const ageOfUtxo1a = predicateTestUtils.getAge(utxo1a)
-    // last bit is to differentiate whether the sender or receiver of the in-flight tx is starting an exit
-    let exitId = ageOfUtxo1a.shln(1).or(web3.utils.toBN(1))
-    // await predicateTestUtils.assertStartExit(
-    //   logs[1], alice, rootERC20.address, aliceInitial.sub(
-    //     aliceToBobtransferAmount), false /* isRegularExit */, exitId, contracts.exitNFT)
-    // predicateTestUtils.assertExitUpdated(logs[2], alice, exitId, ageOfUtxo1a)
-    await contracts.exitNFT.transferFrom(alice, bob, exitId, { from: alice })
-    await predicateTestUtils.processExits(contracts.withdrawManager, rootERC20.address)
-    assert.strictEqual((await rootERC20.balanceOf(bob)).toString(), aliceInitial.sub(aliceToBobtransferAmount).toString())
-  })
-
-  it.skip('Alice & Bob are honest and cooperating', async function() {
+  it('Alice & Bob are honest and cooperating', async function() {
     const alice = accounts[1]
     const bob = accounts[2]
     const aliceInitial = web3.utils.toBN('13')
@@ -140,7 +101,7 @@ contract('Misc Predicates tests @skip-on-coverage', async function(accounts) {
     assert.strictEqual((await rootERC20.balanceOf(bob)).toString(), bobInitial.add(aliceToBobtransferAmount).toString())
   })
 
-  it.skip('Mallory tries to exit a spent output', async function() {
+  it('Mallory tries to exit a spent output', async function() {
     const alice = accounts[0]
     const mallory = accounts[1]
     const aliceInitial = web3.utils.toBN('13')
@@ -185,7 +146,7 @@ contract('Misc Predicates tests @skip-on-coverage', async function(accounts) {
     predicateTestUtils.assertExitCancelled(challenge.logs[0], exitId)
   })
 
-  it.skip('Alice double spends her input (eager exit fails)', async function() {
+  it('Alice double spends her input (eager exit fails)', async function() {
     const alice = accounts[0]
     const bob = accounts[1]
     const aliceInitial = web3.utils.toBN('13')
@@ -306,7 +267,7 @@ contract('Misc Predicates tests @skip-on-coverage', async function(accounts) {
     predicateTestUtils.assertExitCancelled(challenge.logs[0], exitId)
   })
 
-  describe.skip('Mallory is challenged with a marketplace tx', async function() {
+  describe('Mallory is challenged with a marketplace tx', async function() {
     let privateKey1, alice, privateKey2, mallory, marketplacePredicate, marketplace
     before(async function() {
       const stakes = {
@@ -506,7 +467,7 @@ contract('Misc Predicates tests @skip-on-coverage', async function(accounts) {
     })
   })
 
-  describe.skip('Challenge with transferWithSig tx', async function() {
+  describe('Challenge with transferWithSig tx', async function() {
     let alicePrivateKey, alice, malloryPrivateKey, mallory, transferWithSigPredicate
     before(async function() {
       const wallets = generateFirstWallets(mnemonics, 2)

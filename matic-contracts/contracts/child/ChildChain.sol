@@ -40,7 +40,7 @@ contract ChildChain is Ownable, StateSyncerVerifier, StateReceiver {
 
     constructor() public {
         //Mapping matic Token
-        tokens[0xDe4aCEb6bcB9c03A2B8170C2fAC12746271fc281] = 0x0000000000000000000000000000000000001010;
+        tokens[0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0] = 0x0000000000000000000000000000000000001010;
     }
 
     function onStateReceive(
